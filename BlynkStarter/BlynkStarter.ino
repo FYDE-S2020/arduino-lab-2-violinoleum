@@ -31,6 +31,7 @@
 
 /* Comment this out to disable prints and save space */
 #define BLYNK_PRINT Serial
+#define LED_PIN 2
 
 
 #include <WiFi.h>
@@ -39,7 +40,7 @@
 
 // You should get Auth Token in the Blynk App.
 // Go to the Project Settings (nut icon).
-char auth[] = "Your token here";
+char auth[] = "ZKmcR99G6kpj1YAmyZe3RrNs4vuC-s7z";
 
 // Your WiFi credentials.
 // Set password to "" for open networks.
@@ -48,15 +49,73 @@ char auth[] = "Your token here";
 char ssid[32] = "EE-IOT-Platform-02";
 char pass[32] = "g!TyA>hR2JTy";
 
+const int freq = 5000;
+const int ledChannel = 0;
+const int resolution = 10;
+
+int state = 0;
+int duty = 0;
+BlynkTimer timer;
+int time_count = 0;
+String content = "";
+
+
+void myTimerEvent(){
+  if(time_count == 100){
+    Blynk.virtualWrite(V2,millis()/1000);
+    time_count = 0;
+  }
+  else{
+    char character;
+    while(Serial.available()){
+      character = Serial.read();
+      content.concat(character);
+    }
+    if(content != ""){
+      Blynk.virtualWrite(V3,content);
+      content = "";
+    }
+  }
+  time_count += 1;
+}
+
 void setup()
 {
   // Serial Monitor
   Serial.begin(115200);
   Blynk.begin(auth, ssid, pass);
+  pinMode(LED_PIN,OUTPUT);
+  ledcSetup(ledChannel,freq,resolution);
+  ledcAttachPin(LED_PIN,ledChannel);
+  timer.setInterval(10L,myTimerEvent);
 }
 
 void loop()
 {
   Blynk.run();
+  timer.run();
 }
 
+BLYNK_WRITE(V0){
+  int pinValue = param.asInt(); //0 or 1 depending on button press
+  if(pinValue == 0){
+    state = 0;
+    ledcWrite(ledChannel,0);
+  }
+  else{
+    state = 1;
+    ledcWrite(ledChannel,duty);
+  }
+}
+
+BLYNK_WRITE(V1){
+  int val = param.asInt();
+  duty = val;
+  if(state==1)
+    ledcWrite(ledChannel,duty);
+}
+/**
+BLYNK_READ(V2){
+  Blynk.virtualWrite(2,millis()/1000);
+}
+**/
